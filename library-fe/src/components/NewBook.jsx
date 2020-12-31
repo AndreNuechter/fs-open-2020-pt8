@@ -29,7 +29,7 @@ export default ({ show }) => {
                 published,
                 genres
             }
-        }).catch(console.log);
+        }).catch(console.error);
 
         setTitle('');
         setPublished('');
