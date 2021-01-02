@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { ALL_AUTHORS, UPDATE_AUTHOR } from '../queries/queries.js';
+import { ALL_AUTHORS, UPDATE_AUTHOR } from '../queries.js';
 
-export default ({ authors }) => {
+export default ({ authors, setMessage }) => {
+    if (!authors.length) return null;
+
     const placeholder = '-';
     const [author, setAuthor] = useState(placeholder);
     const [dateOfBirth, setDateOfBirth] = useState(placeholder);
@@ -20,16 +22,21 @@ export default ({ authors }) => {
         setAuthor(value);
         setDateOfBirth(born);
     };
-    const submit = async (event) => {
+    const submit = (event) => {
         event.preventDefault();
         if (author === placeholder || !/\d+/.test(dateOfBirth)) return;
 
         updateAuthor({
             variables: { name: author, born: +dateOfBirth }
-        }).catch(console.error);
+        })
+            .then(() => {
+                setMessage(`Updated author ${author}`);
+                setAuthor(placeholder);
+                setDateOfBirth(placeholder);
+            })
+            .catch(console.error);
 
-        setAuthor(placeholder);
-        setDateOfBirth(placeholder);
+
     };
 
     return (

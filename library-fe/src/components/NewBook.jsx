@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { CREATE_BOOK, ALL_AUTHORS, ALL_BOOKS } from '../queries/queries.js';
+import { CREATE_BOOK, ALL_AUTHORS, ALL_BOOKS, RECOMMENDED_BOOKS } from '../queries.js';
 
-export default ({ show }) => {
+const favoriteGenre = localStorage.getItem('library-app-user-favorite-genre') || '';
+
+export default ({ show, setMessage }) => {
     const [title, setTitle] = useState('');
     const [author, setAuthor] = useState('');
     const [published, setPublished] = useState('');
@@ -11,6 +13,10 @@ export default ({ show }) => {
     const [addBook] = useMutation(CREATE_BOOK, {
         refetchQueries: [
             { query: ALL_AUTHORS },
+            {
+                query: RECOMMENDED_BOOKS,
+                variables: { genre: favoriteGenre }
+            },
             { query: ALL_BOOKS }
         ]
     });
@@ -29,13 +35,15 @@ export default ({ show }) => {
                 published,
                 genres
             }
-        }).catch(console.error);
-
-        setTitle('');
-        setPublished('');
-        setAuthor('');
-        setGenres([]);
-        setGenre('');
+        })
+            .then(() => {
+                setTitle('');
+                setPublished('');
+                setAuthor('');
+                setGenres([]);
+                setGenre('');
+            })
+            .catch((error) => setMessage(error.message));
     };
 
     const addGenre = () => {
@@ -46,6 +54,7 @@ export default ({ show }) => {
     return (
         <div>
             <form onSubmit={submit}>
+                <h2>Add a book</h2>
                 <div>
                     title
                     <input

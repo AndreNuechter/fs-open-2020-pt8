@@ -1,9 +1,9 @@
 import React from 'react';
 import { useQuery } from '@apollo/client';
-import { ALL_AUTHORS } from '../queries/queries.js';
+import { ALL_AUTHORS } from '../queries.js';
 import UpdateAuthor from './UpdateAuthor.jsx';
 
-export default ({ show }) => {
+export default ({ show, token, setMessage }) => {
     if (!show) {
         return null;
     }
@@ -16,7 +16,7 @@ export default ({ show }) => {
 
     return (
         <div>
-            <h2>authors</h2>
+            <h2>Authors</h2>
             <table>
                 <tbody>
                     <tr>
@@ -33,7 +33,7 @@ export default ({ show }) => {
                     )}
                 </tbody>
             </table>
-            <UpdateAuthor authors={authors.data.allAuthors} />
+            {token && <UpdateAuthor authors={authors.data.allAuthors} setMessage={setMessage} />}
         </div>
     );
 };

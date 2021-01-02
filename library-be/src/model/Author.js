@@ -11,6 +11,9 @@ const schema = new mongoose.Schema({
     born: {
         type: Number,
     },
+    bookCount: {
+        type: Number
+    }
 });
 
 mongoose.connect(MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });

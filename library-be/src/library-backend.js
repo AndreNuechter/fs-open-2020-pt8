@@ -1,8 +1,11 @@
 const { ApolloServer, gql, UserInputError } = require('apollo-server');
+const { PubSub } = require('apollo-server');
 const jwt = require('jsonwebtoken');
 const Book = require('./model/Book.js');
 const Author = require('./model/Author.js');
+const User = require('./model/User.js');
 
+const pubsub = new PubSub();
 const JWT_SECRET = 'NEED_HERE_A_SECRET_KEY'
 const typeDefs = gql `
 type Author {
@@ -27,7 +30,13 @@ type User {
 }
 
 type Token {
-    value: String!
+    token: String!
+    favoriteGenre: String
+}
+
+type Subscription {
+    bookAdded: Book!
+    loggedOut: User
 }
 
 type Query {
@@ -60,23 +69,22 @@ type Mutation {
         username: String!
         password: String!
     ): Token
+
+    logout(name: String): User
 }
 `;
 
 const resolvers = {
     Query: {
-        bookCount: async () => await Book.find({}).count(),
-        authorCount: async () => await Author.find({}).count(),
+        bookCount: async () => await Book.countDocuments({}),
+        authorCount: async () => await Author.countDocuments({}),
         allBooks: async (root, args) => {
             const books = await Book.find({}).populate('author');
-            // const temp = args.author ? books.filter(b => b.author === args.author) : books;
-            return args.genre ? books.filter(b => b.genres.includes(args.genre)) : books;
+            const temp = args.author ? books.filter(b => b.author.name === args.author) : books;
+            return args.genre ? temp.filter(b => b.genres.includes(args.genre)) : temp;
         },
         allAuthors: async () => await Author.find({}),
-        me: (root, args, context) => context.currentUser
-    },
-    Author: {
-        bookCount: async (root) => await Book.find({ author: root._id }).count()
+        me: (root, args, { currentUser }) => currentUser._doc
     },
     Mutation: {
         addBook: async (root, args, context) => {
@@ -98,7 +106,19 @@ const resolvers = {
                     });
                 });
 
-            await Author.updateOne({ _id: author._id }, { bookCount: author.bookCount + 1 });
+            author.bookCount += 1;
+            await author.save();
+
+            pubsub.publish('BOOK_ADDED', {
+                bookAdded: {
+                    author,
+                    title: newBook.title,
+                    published: newBook.published,
+                    genres: newBook.genres,
+                    id: newBook._id
+                }
+            });
+
             return newBook;
         },
         editAuthor: async (root, args, context) => {
@@ -141,8 +161,25 @@ const resolvers = {
                 username: user.username,
                 id: user._id,
             };
+            const favoriteGenre = user.toObject().favoriteGenre;
 
-            return { value: jwt.sign(userForToken, JWT_SECRET) };
+            return { token: jwt.sign(userForToken, JWT_SECRET), favoriteGenre };
+        },
+        logout: (root, args, { currentUser }) => {
+            pubsub.publish('LOGGED_OUT', {
+                loggedOut: {
+                    ...currentUser._doc
+                }
+            });
+            return currentUser._doc;
+        }
+    },
+    Subscription: {
+        bookAdded: {
+            subscribe: () => pubsub.asyncIterator(['BOOK_ADDED'])
+        },
+        loggedOut: {
+            subscribe: () => pubsub.asyncIterator(['LOGGED_OUT'])
         }
     }
 };
@@ -160,6 +197,7 @@ const server = new ApolloServer({
     }
 });
 
-server.listen().then(({ url }) => {
-    console.log(`Server ready at ${url}`)
+server.listen().then(({ url, subscriptionsUrl }) => {
+    console.log(`Server ready at ${url}`);
+    console.log(`Subscriptions ready at ${subscriptionsUrl}`);
 });
